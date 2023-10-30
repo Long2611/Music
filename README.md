@@ -25,3 +25,7 @@ This repository contains scripts to activate the `musicvenv` Conda environment o
    ```bash
    chmod +x activate_env.sh
    ```
+
+### creating the environment:
+Run the following command to create the environment if the scripts are not loading properly.
+```conda env export > env.yml```
