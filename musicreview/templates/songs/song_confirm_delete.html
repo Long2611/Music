@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Song Confirm Delete{% endblock title %}
+{% block content %}
+<h2>Are you sure you want to delete {{ Song.name }}?</h2>
+<form method="post">
+{% csrf_token %}
+<button value="Confirm" class="btn btn-danger" type="submit">Delete</button>
+<a class="btn btn-secondary" href="{% url 'Songs:list' %}">Cancel</a>
+</form>
+{% endblock content %}

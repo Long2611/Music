@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Song List{% endblock title %}
+{% block content %}
+<h2>Song List</h2>
+<table class="table">
+        <th>
+            Name
+        </th>
+        <th>
+            album
+        </th>
+        <th>
+            artist
+        </th>
+        <th>
+            genres
+        </th>
+        <th>
+            popularity
+        </th>
+        <th>
+            duration
+        </th>
+        <th>
+            rating
+        </th>
+        <th>
+            actions
+        </th>
+
+            
+{% for Song in Song_list %}
+<!-- table for all the Songs with name and country columns-->
+    <tr>
+        <td><a href="{% url 'Songs:detail' Song.slug %}">{{ Song.name }}</a></td>
+        <td>{{ Song.album }}</td>
+        <td>{{ Song.artist }}</td>
+        <td>{{ Song.genres }}</td>
+        <td>{{ Song.popularity }}</td>
+        <td>{{ Song.duration }}</td>
+        <!-- rating, but instead we make a loop to show as many star icons as Song.average_Rating -->
+        <td>
+            {% for _ in ""|rjust:Song.average_rating %}
+                <i class="fa fa-star" style="color: gold;"></i>
+            {% endfor %}
+        </td>
+        <!-- delete view, brings us to a delete view for deleting Songs-->
+        <td>
+            <a href="{% url 'Songs:delete' Song.slug %}">
+                <i class="fa fa-trash-alt" style="color:crimson;"></i>
+            </a> 
+            <a href="{% url 'Songs:update' Song.slug %}">
+                <i class="fa fa-edit" style="color:blue;"></i>
+            </a>
+            <!-- Song rating button with cool icon-->
+            <a href="{% url 'Songs:rate' Song.slug %}">
+                <i class="fa fa-star" style="color:gold;"></i>
+            </a>
+        </td>
+        </tr>
+{% endfor %}
+</table>
+<!-- go to add view button -->  
+<a class="btn btn-primary" href="{% url 'Songs:create' %}">Add Song</a>
+{% endblock content %}
