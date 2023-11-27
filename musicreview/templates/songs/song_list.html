@@ -2,64 +2,117 @@
 {% block title %}Song List{% endblock title %}
 {% block content %}
 <h2>Song List</h2>
-<table class="table">
-        <th>
-            Name
-        </th>
-        <th>
-            album
-        </th>
-        <th>
-            artist
-        </th>
-        <th>
-            genres
-        </th>
-        <th>
-            popularity
-        </th>
-        <th>
-            duration
-        </th>
-        <th>
-            rating
-        </th>
-        <th>
-            actions
-        </th>
-
-            
-{% for Song in Song_list %}
-<!-- table for all the Songs with name and country columns-->
-    <tr>
-        <td><a href="{% url 'Songs:detail' Song.slug %}">{{ Song.name }}</a></td>
-        <td>{{ Song.album }}</td>
-        <td>{{ Song.artist }}</td>
-        <td>{{ Song.genres }}</td>
-        <td>{{ Song.popularity }}</td>
-        <td>{{ Song.duration }}</td>
-        <!-- rating, but instead we make a loop to show as many star icons as Song.average_Rating -->
-        <td>
-            {% for _ in ""|rjust:Song.average_rating %}
-                <i class="fa fa-star" style="color: gold;"></i>
-            {% endfor %}
-        </td>
-        <!-- delete view, brings us to a delete view for deleting Songs-->
-        <td>
-            <a href="{% url 'Songs:delete' Song.slug %}">
-                <i class="fa fa-trash-alt" style="color:crimson;"></i>
-            </a> 
-            <a href="{% url 'Songs:update' Song.slug %}">
-                <i class="fa fa-edit" style="color:blue;"></i>
-            </a>
-            <!-- Song rating button with cool icon-->
-            <a href="{% url 'Songs:rate' Song.slug %}">
-                <i class="fa fa-star" style="color:gold;"></i>
-            </a>
-        </td>
+<table class="table" id="songs-table">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Album</th>
+            <th>Artist</th>
+            <th>Genres</th>
+            <th>Popularity</th>
+            <th>Duration</th>
+            <th>Rating</th>
+            <th>Actions</th>
         </tr>
-{% endfor %}
+    </thead>
+    <tbody id="song-list">
+        <!-- Songs will be populated here by JavaScript -->
+    </tbody>
 </table>
-<!-- go to add view button -->  
-<a class="btn btn-primary" href="{% url 'Songs:create' %}">Add Song</a>
+
+<a class="btn btn-primary" href="{% url 'Songs:spotify-auth-redirect' %}?next=create">Add Song</a>
+
+<script>
+    const songs = {{ songs | safe }};
+    console.log(songs)
+    const accessToken = '{{ request.session.spotify_access_token }}';
+
+    songs.forEach(async (song) => {
+        let response = await fetch(`https://api.spotify.com/v1/tracks/${song.spotify_song_id}`, {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`
+            }
+        });
+
+        if (response.status === 401 || response.status === 400) {
+            window.location.href = `/Songs/spotify-auth-redirect?next=list`;
+        } else if (response.ok) {
+            let songData = await response.json();
+            let userHasReviewedJs = song.user_has_reviewed;
+            addSongToTable(songData, song.id, song.average_rating, userHasReviewedJs);
+        } else {
+            console.error('Error fetching song data:', response.status);
+        }
+    });
+
+    async function fetchGenres(artistId) {
+        let response = await fetch(`https://api.spotify.com/v1/artists/${artistId}`, {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`
+            }
+        });
+
+        if (response.ok) {
+            let artistData = await response.json();
+            return artistData.genres.join(', ');
+        } else {
+            console.error('Error fetching artist genres:', response.status);
+            return 'Unknown';
+        }
+    }
+
+    async function addSongToTable(songData, dbId, avg_review, userHasReviewedStr) {
+        console.log(songData)
+        console.log(userHasReviewedStr)
+        if (userHasReviewedStr === 'True') {
+            var userHasReviewed = true;
+        } else {
+            var userHasReviewed = false;
+        }
+        let table = document.getElementById('song-list');
+        let row = table.insertRow();
+        // if userHasReviewed undefined set hasLoggedIn to false
+        var hasLoggedIn = '{{ request.user.is_authenticated }}';
+
+        let nameCell = row.insertCell(0);
+        let albumCell = row.insertCell(1);
+        let artistCell = row.insertCell(2);
+        let genresCell = row.insertCell(3);
+        let popularityCell = row.insertCell(4);
+        let durationCell = row.insertCell(5);
+        let ratingCell = row.insertCell(6);
+        let actionsCell = row.insertCell(7);
+
+        nameCell.innerHTML = `<a href="{% url 'Songs:detail' 1234 %}">${songData.name}</a>`.replace('1234/', dbId);
+        albumCell.innerHTML = songData.album.name;
+        artistCell.innerHTML = songData.artists.map(artist => artist.name).join(', ');
+        if (songData.artists.length > 0) {
+            genresCell.innerHTML = await fetchGenres(songData.artists[0].id);
+        } else {
+            genresCell.innerHTML = 'Unknown';
+        }
+        console.log(hasLoggedIn);
+        popularityCell.innerHTML = songData.popularity;
+        durationCell.innerHTML = formatDuration(songData.duration_ms);  
+        ratingCell.innerHTML = '★'.repeat(avg_review);  // Placeholder for rating
+        let reviewActionHtml;
+        if (userHasReviewed) {
+            reviewActionHtml = `<a href='edit-review/${dbId}'>Edit Review</a>`;
+        } else {
+            reviewActionHtml = `<a href='review/${dbId}'>Create Review</a>`;
+        }
+        if (hasLoggedIn != 'True'){
+            reviewActionHtml = `<a href="/accounts/login">Login to Review</a>`;
+        }
+
+        actionsCell.innerHTML = `${reviewActionHtml} {% if request.user.is_superuser %}| <a href='delete/${dbId}/'>Delete</a>{% endif %}`;
+        }
+
+    function formatDuration(durationMs) {
+        let minutes = Math.floor(durationMs / 60000);
+        let seconds = ((durationMs % 60000) / 1000).toFixed(0);
+        return minutes + ":" + (seconds < 10 ? '0' : '') + seconds;
+    }
+</script>
+
 {% endblock content %}

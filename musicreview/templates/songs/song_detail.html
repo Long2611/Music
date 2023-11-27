@@ -1,5 +1,135 @@
 {% extends "base.html" %}
-{% block title %}Songs: {{ Song.name }}{% endblock title %}
+{% block title %}Song: {{ object.name }}{% endblock title %}
 {% block content %}
+
+<div class="d-flex justify-content-start">
+    <div class="card flex-grow-1 me-3" id="song-details-card">
+        <div class="card-body" id="song-details">
+            <!-- Song details will be populated here -->
+        </div>
+    </div>
+    <div class="card" style="width: 340px;">
+        <div class="card-body" id="spotify-player"></div>
+    </div>
+</div>
+
+<div id="reviews-section">
+    <h3>Reviews</h3>
+    <!-- Reviews will be populated here -->
+</div>
+
+<script>
+    const spotifySongId = '{{ spotify_song_id }}';
+    const accessToken = '{{ request.session.spotify_access_token }}';
+
+    fetchSongDetails();
+
+    async function fetchSongDetails() {
+        let response = await fetch(`https://api.spotify.com/v1/tracks/${spotifySongId}`, {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`
+            }
+        });
+
+        if (response.status === 401 || response.status === 400) {
+            window.location.href = `/spotify-auth-redirect?next=list`;
+        } else if (response.ok) {
+            let songData = await response.json();
+            displaySongDetails(songData);
+            displaySpotifyPlayer(songData.id);
+        } else {
+            console.error('Error fetching song details:', response.status);
+        }
+    }
+
+    async function fetchGenres(artistId) {
+        let response = await fetch(`https://api.spotify.com/v1/artists/${artistId}`, {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`
+            }
+        });
+
+        if (response.ok) {
+            let artistData = await response.json();
+            return artistData.genres.join(', ');
+        } else {
+            console.error('Error fetching artist genres:', response.status);
+            return 'Unknown';
+        }
+    }
+
+    async function displaySongDetails(songData) {
+        let genres = await fetchGenres(songData.artists[0].id);  // Fetch genres for the first artist
+
+        let detailsDiv = document.getElementById('song-details');
+        detailsDiv.innerHTML = `
+            <h2 class="card-title">${songData.name}</h5>
+            <p class="card-text"><b>Album:</b> ${songData.album.name}</p>
+            <p class="card-text"><b>Artist:</b> ${songData.artists.map(artist => artist.name).join(', ')}</p>
+            <p class="card-text"><b>Genre:</b> ${genres}</p>
+            <p class="card-text"><b>Popularity:</b> ${songData.popularity}</p>
+            <p class="card-text"><b>duration:</b> ${formatDuration(songData.duration_ms)}</p>
+            <p class="card-text"><b>Average Rating:</b> ${'★'.repeat({{ object.average_rating }})}</p>
+        `;
+    }
+
+    function formatDuration(durationMs) {
+        let minutes = Math.floor(durationMs / 60000);
+        let seconds = ((durationMs % 60000) / 1000).toFixed(0);
+        return minutes + ":" + (seconds < 10 ? '0' : '') + seconds;
+    }
+
+    function displaySpotifyPlayer(songId) {
+        let playerDiv = document.getElementById('spotify-player');
+        playerDiv.innerHTML = `<iframe src="https://open.spotify.com/embed/track/${songId}" width="300" height="380" frameborder="0" allowtransparency="true" allow="encrypted-media"></iframe>`;
+    }
+
+    // Function to fetch and display reviews
+    async function fetchReviews() {
+        // Replace `songId` with the correct variable or URL parameter
+        let response = await fetch(`/Songs/api/{{object.id}}/reviews/`);
+        if (response.ok) {
+            let reviews = await response.json();
+            displayReviews(reviews);
+        } else {
+            console.error('Error fetching reviews:', response.status);
+        }
+    }
+
+
+    const currentUser = "{{ request.user.username }}" || null;
+    function displayReviews(reviews) {
+        let reviewsSection = document.getElementById('reviews-section');
+        reviews.forEach(review => {
+            console.log(review);
+            let isUserReview = currentUser && review.creator__username === currentUser;
+
+            let reviewCard = document.createElement('div');
+            reviewCard.className = 'card mb-2';
+            reviewCard.innerHTML = `
+                <div class="card-body">
+                    <h5 class="card-title">${review.creator__username}</h5>
+                    <p class="card-text">${review.comment}</p>
+                    <p class="card-text">Rating: ${'★'.repeat(review.rating)}</p>
+                    ${isUserReview ? `<button onclick="editReview(${review.Song})">Edit Review</button>` : ''}
+                    ${isUserReview ? `<button onclick="deleteReview(${review.Song})">Delete Review</button>` : ''}
+                </div>
+            `;
+            reviewsSection.appendChild(reviewCard);
+        });
+    }
+    // Function to handle edit review
+    function editReview(reviewId) {
+        window.location.href = `/Songs/edit-review/${reviewId}`;
+    }
+
+    // Function to handle delete review
+    async function deleteReview(reviewId) {
+        window.location.href = `/Songs/delete-review/${reviewId}`;
+    }
+
+    fetchSongDetails();
+    fetchReviews();  // Call this function to fetch and display reviews
+</script>
 
 {% endblock content %}

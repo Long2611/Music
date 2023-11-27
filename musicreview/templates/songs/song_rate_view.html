@@ -1,5 +1,29 @@
 {% extends "base.html" %}
-{% block title %}Rate{% endblock title %}
-{% block content %}
 
+{% block title %}Song Review{% endblock title %}
+
+{% block content %}
+<div class="container">
+    <h2>Review Song: {{ song.name }}</h2>
+    <form method="post">
+        {% csrf_token %}
+        <!-- Assuming you have a form named 'review_form' -->
+        <!-- accept auto populated form values for edit-->
+        {{ form.as_p }}
+
+        <button type="submit" class="btn btn-primary">Submit Review</button>
+    </form>
+</div>
+
+<script>
+    // check for auto populating context comment and rating
+    // if so, auto populate form, otherwise do nothing
+    if { {{comment}} } != null {
+        document.getElementById("id_comment").value = {{ comment }};
+    }
+    if { {{rating}} } != null {
+        document.getElementById("id_rating").value = {{ rating }};
+    }
+
+</script>
 {% endblock content %}
