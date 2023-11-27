@@ -12,6 +12,13 @@ APPS_DIR = BASE_DIR / "musicreview"
 
 env = environ.Env()
 
+# settings.py
+SPOTIFY_CLIENT_ID = '9e907c6903c5417cbd1843406b70bcc7'
+SPOTIFY_CLIENT_SECRET = '70922dc36c65412d9417aa96efe2a21e'
+SPOTIFY_REDIRECT_URI = 'http://localhost:8000/Songs/spotify-callback/'
+DEFAULT_RETURN_URL = '/Songs/'
+
+
 ENV_FILE = BASE_DIR / ".env"
 if Path(ENV_FILE).exists():
     # OS environment variables take precedence over variables from .env
@@ -139,6 +146,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.common.BrokenLinkEmailsMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "musicreview.Songs.middleware.SpotifyAuthMiddleware",
 ]
 
 # STATIC

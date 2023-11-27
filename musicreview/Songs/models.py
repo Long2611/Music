@@ -10,32 +10,21 @@ from model_utils.models import TimeStampedModel
 #import validators
 from django.core.validators import MinValueValidator, MaxValueValidator
 
+from django.db import models
+from django.db.models import Avg
+
 # Create your models here.
-
-
 class Song(TimeStampedModel):
+    spotify_song_id = models.CharField(max_length=255, default='')
 
-    # Below are fields from the spotify get track endpoint
-    name = models.CharField("Name of Song", max_length=255)
-    spotify_id = models.CharField("Spotify ID", max_length=255)
-    album = models.CharField("Album", max_length=255)
-    artist = models.CharField("Artist", max_length=255)
-    release_date = models.DateField("Release Date")
-    popularity = models.PositiveIntegerField("Popularity")
-    duration_ms = models.PositiveIntegerField("Duration (ms)")
-    explicit = models.BooleanField("Explicit")
-    image_url = models.URLField("Image URL")
-    genres = models.CharField("Genres", max_length=255, blank=True, null=True)
-
-    #average rating method to get the average rating of a song
     def average_rating(self):
-        all_ratings = map(lambda x: x.rating, self.songrating_set.all())
-        return np.mean(all_ratings)
+        return self.songrating_set.aggregate(Avg('rating'))['rating__avg'] or 0
 
     
 # Song rating model
 class SongRating(TimeStampedModel):
     rating = models.PositiveIntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(5)])
+    comment = models.TextField(blank=True, null=True)
 
     creator = models.ForeignKey(
         settings.AUTH_USER_MODEL,

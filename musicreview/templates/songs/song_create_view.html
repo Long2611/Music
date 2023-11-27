@@ -1,5 +1,145 @@
 {% extends "base.html" %}
 {% block content %}
 {% block title %}Song Create{% endblock title %}
+<div id="toast"></div>
+
+<style>
+    /* Toast Styling */
+    #toast {
+        visibility: hidden;
+        min-width: 250px;
+        margin-left: -125px;
+        background-color: #333;
+        color: #fff;
+        text-align: center;
+        border-radius: 2px;
+        padding: 16px;
+        position: fixed;
+        z-index: 1;
+        left: 50%;
+        bottom: 30px;
+        font-size: 17px;
+    }
+
+    #toast.show {
+        visibility: visible;
+        -webkit-animation: fadein 0.5s, fadeout 0.5s 2.5s;
+        animation: fadein 0.5s, fadeout 0.5s 2.5s;
+    }
+
+    @-webkit-keyframes fadein {
+        from {bottom: 0; opacity: 0;} 
+        to {bottom: 30px; opacity: 1;}
+    }
+
+    @keyframes fadein {
+        from {bottom: 0; opacity: 0;}
+        to {bottom: 30px; opacity: 1;}
+    }
+
+    @-webkit-keyframes fadeout {
+        from {bottom: 30px; opacity: 1;} 
+        to {bottom: 0; opacity: 0;}
+    }
+
+    @keyframes fadeout {
+        from {bottom: 30px; opacity: 1;}
+        to {bottom: 0; opacity: 0;}
+    }
+</style>
+
+<input type="text" id="song-search-box" placeholder="Search for a song" oninput="searchSongs()">
+
+<div id="song-results"></div>
+
+<script>
+    const accessToken = '{{ spotify_access_token }}';
+
+    async function searchSongs() {
+        let searchQuery = document.getElementById('song-search-box').value;
+        let resultsDiv = document.getElementById('song-results');
+
+        if (searchQuery.length < 3) {
+            resultsDiv.innerHTML = '';
+            return; // Avoid searching for too short strings
+        }
+
+        let response = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(searchQuery)}&type=track`, {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`
+            }
+        });
+
+        let data = await response.json();
+        resultsDiv.innerHTML = '';
+
+        data.tracks.items.forEach(track => {
+            let card = document.createElement('div');
+            card.className = 'song-card';
+            card.innerHTML = `
+                <p>Song: ${track.name}</p>
+                <p>Artist: ${track.artists[0].name}</p>
+                <button onclick="addSong('${track.id}')">Add Song</button>
+            `;
+            resultsDiv.appendChild(card);
+        });
+    }
+
+    async function addSong(spotifySongId) {
+    let response = await fetch('/Songs/save/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({spotify_song_id: spotifySongId})
+    });
+
+    if (response.ok) {
+        window.location.href = '/Songs/'; // Redirect to the song view
+    } else {
+        const errorData = await response;
+        try {
+            //show toast with django html content
+            showToast(await errorData.text());
+        } catch (error) {
+            showToast('Error adding song'); // Fallback error message
+        }
+    }
+    }
+
+    function showToast(message) {
+        // Assuming you have a toast element in your HTML
+        let toast = document.getElementById("toast");
+        toast.innerText = message;
+        toast.className = "show";
+        setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 3000);
+    }
+
+
+    // Function to get CSRF token from cookies
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+</script>
+
+<style>
+.song-card {
+    border: 1px solid #ddd;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+</style>
 
 {% endblock content %}
