@@ -17,6 +17,7 @@
       <p>{{ object.bio }}</p>
       {% endif %}
     </div>
+    
   </div>
 
 {% if object == request.user %}
@@ -33,7 +34,122 @@
 <!-- End Action buttons -->
 {% endif %}
 
+  <!-- Reviews Section -->
+  <div class="row">
+      <div class="col-sm-12">
+          <h3>User Reviews</h3>
+          <div id="reviews-container">
+              <!-- Reviews will be loaded here -->
+          </div>
+      </div>
+  </div>
 
 </div>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+
+<script>
+  $(document).ready(function() {
+      const accessToken = '{{ request.session.spotify_access_token }}'; // Ensure this is available in your template
+
+      function fetchUserReviews() {
+          const userId = {{ object.id }};
+          $.ajax({
+              url: `/Songs/api/user/${userId}/reviews/`,
+              type: 'GET',
+              success: function(reviews) {
+                  displayReviews(reviews);
+              },
+              error: function(error) {
+                  console.error('Error fetching reviews:', error);
+              }
+          });
+      }
+
+      function fetchSongName(spotifySongId) {
+          return $.ajax({
+              url: `https://api.spotify.com/v1/tracks/${spotifySongId}`,
+              type: 'GET',
+              headers: {
+                  'Authorization': `Bearer ${accessToken}`
+              },
+              success: function(songData) {
+                  return songData.name;
+              },
+              error: function(error) {
+                  console.error('Error fetching song data:', error);
+                  return 'Unknown Song';
+              }
+          });
+      }
+
+      function getSpotifyId(songId) {
+          return $.ajax({
+              url: `/Songs/api/song/${songId}/spotify-id/`,
+              type: 'GET',
+              success: function(songData) {
+                  return songData['spotify_song_id'];
+              },
+              error: function(error) {
+                  console.error('Error fetching song data:', error);
+                  return null;
+              }
+          });
+      }
+
+      function getSpotifyArtistName(songId) {
+          return $.ajax({
+              url: `https://api.spotify.com/v1/tracks/${songId}`,
+              type: 'GET',
+              headers: {
+                  'Authorization': `Bearer ${accessToken}`
+              },
+              success: function(spotifySongData) {
+                  return spotifySongData.artists[0].name;
+              },
+              error: function(error) {
+                  console.error('Error:', error);
+                  return null;
+              }
+          });
+      }
+
+      const currentUser = "{{ request.user.username }}" || null;
+      async function displayReviews(reviews) {
+          let reviewsSection = $('#reviews-container');
+          for (const review of reviews) {
+            console.log(review);
+            let spotifyId = await getSpotifyId(review.Song);
+            spotifyId = spotifyId['spotify_song_id'];
+            let songName = await fetchSongName(spotifyId); // Assuming review object has spotify_song_id
+            let artistName = await getSpotifyArtistName(spotifyId); // Assuming review object has spotify_song_id
+            let isUserReview = currentUser && review.creator__username === currentUser;
+            
+            songName = songName['name']
+            artistName = artistName['artists'][0]['name']
+            console.log(spotifyId)
+            console.log(songName)
+            console.log(artistName)
+            let reviewCard = $('<div>').addClass('card mb-2');
+            reviewCard.html(`
+                <div class="card-body">
+                    <h5 class="card-title">${songName} - ${artistName}</h5>
+                    <p class="card-text"><strong>Review by:</strong> ${review.creator__username}</p>
+                    <p class="card-text">${review.comment}</p>
+                    <p class="card-text">Rating: ${'★'.repeat(review.rating)}</p>
+                    ${isUserReview ? `<button onclick="editReview(${review.Song})">Edit Review</button>` : ''}
+                    ${isUserReview ? `<button onclick="deleteReview(${review.Song})">Delete Review</button>` : ''}
+                </div>
+            `);
+            reviewsSection.append(reviewCard);
+          }
+      }
+
+      fetchUserReviews();
+  });
+</script>
+
+
+
 {% endblock content %}
 

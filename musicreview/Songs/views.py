@@ -162,6 +162,25 @@ def song_reviews(request, pk):
 
     return JsonResponse(reviews, safe=False)
 
+def user_reviews(request, pk):
+    reviews_query = SongRating.objects.filter(creator_id=pk).values(
+        'id', 'rating', 'comment', 'creator__username', 'Song'
+    )
+
+    reviews = list(reviews_query)
+    if request.user.is_authenticated:
+        user_review = next((r for r in reviews if r['creator__username'] == request.user.username), None)
+        if user_review:
+            reviews.remove(user_review)
+            reviews.insert(0, user_review)
+
+    return JsonResponse(reviews, safe=False)
+
+def get_spotify_song_id(request, pk):
+    song = Song.objects.get(id=pk)
+    spotify_song_id = song.spotify_song_id
+    return JsonResponse({'spotify_song_id': spotify_song_id})
+
 def spotify_auth_redirect(request):
     next_url = request.GET.get('next', settings.DEFAULT_RETURN_URL)
     #prepend "Songs:" to the next_url
@@ -215,8 +234,6 @@ def spotify_callback(request):
 
     # Handle scenarios where there's neither code nor error.
     return HttpResponseRedirect(reverse('default_view_name'))  # Redirect to a default page or an error page.
-
-    
 
 @csrf_exempt  # Consider using CSRF protection for production
 @require_POST

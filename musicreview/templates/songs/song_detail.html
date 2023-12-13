@@ -17,45 +17,44 @@
     <h3>Reviews</h3>
     <!-- Reviews will be populated here -->
 </div>
-
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
 <script>
     const spotifySongId = '{{ spotify_song_id }}';
     const accessToken = '{{ request.session.spotify_access_token }}';
 
     fetchSongDetails();
 
-    async function fetchSongDetails() {
-        let response = await fetch(`https://api.spotify.com/v1/tracks/${spotifySongId}`, {
+    function fetchSongDetails() {
+        $.ajax({
+            url: `https://api.spotify.com/v1/tracks/${spotifySongId}`,
             headers: {
                 'Authorization': `Bearer ${accessToken}`
+            },
+            success: function(songData) {
+                displaySongDetails(songData);
+                displaySpotifyPlayer(songData.id);
+            },
+            error: function(xhr, status, error) {
+                if (xhr.status === 401 || xhr.status === 400) {
+                    window.location.href = `/spotify-auth-redirect?next=list`;
+                } else {
+                    console.error('Error fetching song details:', xhr.status);
+                }
             }
         });
-
-        if (response.status === 401 || response.status === 400) {
-            window.location.href = `/spotify-auth-redirect?next=list`;
-        } else if (response.ok) {
-            let songData = await response.json();
-            displaySongDetails(songData);
-            displaySpotifyPlayer(songData.id);
-        } else {
-            console.error('Error fetching song details:', response.status);
-        }
     }
 
-    async function fetchGenres(artistId) {
-        let response = await fetch(`https://api.spotify.com/v1/artists/${artistId}`, {
+
+    function fetchGenres(artistId) {
+        return $.ajax({
+            url: `https://api.spotify.com/v1/artists/${artistId}`,
             headers: {
                 'Authorization': `Bearer ${accessToken}`
+            },
+            error: function(xhr, status, error) {
+                console.error('Error fetching artist genres:', xhr.status);
             }
         });
-
-        if (response.ok) {
-            let artistData = await response.json();
-            return artistData.genres.join(', ');
-        } else {
-            console.error('Error fetching artist genres:', response.status);
-            return 'Unknown';
-        }
     }
 
     async function displaySongDetails(songData) {
@@ -85,16 +84,18 @@
     }
 
     // Function to fetch and display reviews
-    async function fetchReviews() {
-        // Replace `songId` with the correct variable or URL parameter
-        let response = await fetch(`/Songs/api/{{object.id}}/reviews/`);
-        if (response.ok) {
-            let reviews = await response.json();
-            displayReviews(reviews);
-        } else {
-            console.error('Error fetching reviews:', response.status);
-        }
+    function fetchReviews() {
+        $.ajax({
+            url: `/Songs/api/{{object.id}}/reviews/`,
+            success: function(reviews) {
+                displayReviews(reviews);
+            },
+            error: function(xhr, status, error) {
+                console.error('Error fetching reviews:', xhr.status);
+            }
+        });
     }
+
 
 
     const currentUser = "{{ request.user.username }}" || null;
