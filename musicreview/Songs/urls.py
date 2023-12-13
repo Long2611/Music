@@ -34,5 +34,9 @@ urlpatterns = [
     path('delete-review/<int:pk>', views.DeleteReviewView.as_view(), name='delete-review'),
     #delete review
     path('delete-review/confirmed/<int:pk>', views.delete_review, name='delete-review-confirmed'),
+    #get all reviews for a given user pk
+    path('api/user/<int:pk>/reviews/', views.user_reviews, name='user-reviews'),
+    #get spotify song id from song id
+    path('api/song/<int:pk>/spotify-id/', views.get_spotify_song_id, name='get-spotify-song-id'),
 
 ]

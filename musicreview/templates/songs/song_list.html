@@ -22,56 +22,52 @@
 
 <a class="btn btn-primary" href="{% url 'Songs:spotify-auth-redirect' %}?next=create">Add Song</a>
 
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+
 <script>
     const songs = {{ songs | safe }};
     console.log(songs)
     const accessToken = '{{ request.session.spotify_access_token }}';
 
-    songs.forEach(async (song) => {
-        let response = await fetch(`https://api.spotify.com/v1/tracks/${song.spotify_song_id}`, {
+    songs.forEach((song) => {
+        $.ajax({
+            url: `https://api.spotify.com/v1/tracks/${song.spotify_song_id}`,
             headers: {
                 'Authorization': `Bearer ${accessToken}`
+            },
+            success: function(songData) {
+                let userHasReviewedJs = song.user_has_reviewed;
+                addSongToTable(songData, song.id, song.average_rating, userHasReviewedJs);
+            },
+            error: function(xhr) {
+                if (xhr.status === 401 || xhr.status === 400) {
+                    window.location.href = `/Songs/spotify-auth-redirect?next=list`;
+                } else {
+                    console.error('Error fetching song data:', xhr.status);
+                }
             }
         });
-
-        if (response.status === 401 || response.status === 400) {
-            window.location.href = `/Songs/spotify-auth-redirect?next=list`;
-        } else if (response.ok) {
-            let songData = await response.json();
-            let userHasReviewedJs = song.user_has_reviewed;
-            addSongToTable(songData, song.id, song.average_rating, userHasReviewedJs);
-        } else {
-            console.error('Error fetching song data:', response.status);
-        }
     });
 
-    async function fetchGenres(artistId) {
-        let response = await fetch(`https://api.spotify.com/v1/artists/${artistId}`, {
+    function fetchGenres(artistId) {
+        return $.ajax({
+            url: `https://api.spotify.com/v1/artists/${artistId}`,
             headers: {
                 'Authorization': `Bearer ${accessToken}`
+            },
+            error: function(xhr) {
+                console.error('Error fetching artist genres:', xhr.status);
+                return 'Unknown';
             }
         });
-
-        if (response.ok) {
-            let artistData = await response.json();
-            return artistData.genres.join(', ');
-        } else {
-            console.error('Error fetching artist genres:', response.status);
-            return 'Unknown';
-        }
     }
 
     async function addSongToTable(songData, dbId, avg_review, userHasReviewedStr) {
         console.log(songData)
         console.log(userHasReviewedStr)
-        if (userHasReviewedStr === 'True') {
-            var userHasReviewed = true;
-        } else {
-            var userHasReviewed = false;
-        }
+        var userHasReviewed = userHasReviewedStr === 'True';
         let table = document.getElementById('song-list');
         let row = table.insertRow();
-        // if userHasReviewed undefined set hasLoggedIn to false
         var hasLoggedIn = '{{ request.user.is_authenticated }}';
 
         let nameCell = row.insertCell(0);
@@ -86,15 +82,27 @@
         nameCell.innerHTML = `<a href="{% url 'Songs:detail' 1234 %}">${songData.name}</a>`.replace('1234/', dbId);
         albumCell.innerHTML = songData.album.name;
         artistCell.innerHTML = songData.artists.map(artist => artist.name).join(', ');
+
         if (songData.artists.length > 0) {
-            genresCell.innerHTML = await fetchGenres(songData.artists[0].id);
+            fetchGenres(songData.artists[0].id).done(function(genres) {
+                
+                genresCell.innerHTML = genres.genres.join(', ');
+            }).fail(function() {
+                genresCell.innerHTML = 'Unknown';
+            });
         } else {
             genresCell.innerHTML = 'Unknown';
         }
+
         console.log(hasLoggedIn);
         popularityCell.innerHTML = songData.popularity;
-        durationCell.innerHTML = formatDuration(songData.duration_ms);  
-        ratingCell.innerHTML = '★'.repeat(avg_review);  // Placeholder for rating
+        durationCell.innerHTML = formatDuration(songData.duration_ms);
+        let remaindingStars = 5 - avg_review;
+        console.log("remaindingStars");
+        console.log(remaindingStars);
+        console.log("avg_review");
+        console.log(avg_review);
+        ratingCell.innerHTML = '★'.repeat(avg_review) + '☆'.repeat(remaindingStars);  // Placeholder for rating
         let reviewActionHtml;
         if (userHasReviewed) {
             reviewActionHtml = `<a href='edit-review/${dbId}'>Edit Review</a>`;
@@ -106,7 +114,7 @@
         }
 
         actionsCell.innerHTML = `${reviewActionHtml} {% if request.user.is_superuser %}| <a href='delete/${dbId}/'>Delete</a>{% endif %}`;
-        }
+    }
 
     function formatDuration(durationMs) {
         let minutes = Math.floor(durationMs / 60000);
@@ -114,5 +122,6 @@
         return minutes + ":" + (seconds < 10 ? '0' : '') + seconds;
     }
 </script>
+
 
 {% endblock content %}

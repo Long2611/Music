@@ -12,10 +12,14 @@ User = get_user_model()
 
 class UserDetailView(LoginRequiredMixin, DetailView):
     model = User
-    # These Next Two Lines Tell the View to Index
-    #   Lookups by Username
     slug_field = "username"
     slug_url_kwarg = "username"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['object_id'] = self.object.id  # Add the user's ID to the context
+        return context
+
 
 
 user_detail_view = UserDetailView.as_view()
